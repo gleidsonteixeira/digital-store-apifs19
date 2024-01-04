@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const brandRoutes = require('./src/routes/brandRoutes');
+const userRoutes = require('./src/routes/userRoutes');
 
 const app = express();
 const port = 8000;
@@ -18,6 +19,7 @@ app.get('/docs', (req, res) => {
 });
 
 app.use('/brands', brandRoutes);
+app.use('/users', userRoutes);
 
 app.all('*', (req, res) => {
     return res.send({
