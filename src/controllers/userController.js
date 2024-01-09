@@ -1,4 +1,5 @@
 const DB = require('../database/index');
+const jwt = require('jsonwebtoken');
 const table = 'users';
 
 async function create(data){
@@ -30,6 +31,42 @@ async function create(data){
     }
 }
 
+async function login(data){
+    try {
+        if(!data.user_email || data.user_email === ''){
+            throw new Error('Email obrigatório');
+        }
+
+        if(!data.user_password || data.user_password === ''){
+            throw new Error('Senha obrigatória');
+        }
+
+        const result = await DB.execute(`SELECT * FROM ${table} WHERE user_email = '${data.user_email}' AND user_password = '${data.user_password}';`);
+
+        if(result.length === 0){
+            return {
+                message: 'Email ou senha incorretos'
+            }
+        }
+
+        const token = jwt.sign({ user_id: result[0].user_id }, 'digital-store-api', {
+            expiresIn: '1h'
+        });
+
+        await DB.execute(`UPDATE ${table} SET token = '${token}' WHERE user_id = ${result[0].user_id};`)
+        
+        return {
+            token
+        }
+
+    } catch (error) {
+        return {
+            message: error.message
+        }
+    }
+}
+
 module.exports = {
-    create
+    create,
+    login
 }
