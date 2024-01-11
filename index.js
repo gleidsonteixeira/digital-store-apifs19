@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 
 const brandRoutes = require('./src/routes/brandRoutes');
 const userRoutes = require('./src/routes/userRoutes');
@@ -18,8 +19,21 @@ app.get('/docs', (req, res) => {
     return res.send('Documentação da aplicação');
 });
 
-app.use('/brands', brandRoutes);
 app.use('/users', userRoutes);
+app.use((req, res, next) => {
+    if(!req.headers.authorization){
+        return res.send('Token é necessário');
+    }
+
+    jwt.verify(req.headers.authorization.split(' ')[1], 'digital-store-api', (error) => {
+        if(error){
+            return res.send('Token expirado');
+        }
+
+        next();
+    });
+});
+app.use('/brands', brandRoutes);
 
 app.all('*', (req, res) => {
     return res.send({

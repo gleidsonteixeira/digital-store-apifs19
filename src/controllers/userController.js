@@ -1,4 +1,5 @@
 const DB = require('../database/index');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const table = 'users';
 
@@ -20,12 +21,23 @@ async function create(data){
             throw new Error('Já existe um usuário com este email!');
         }
 
-        await DB.execute(`INSERT INTO ${table} (user_name, user_email, user_password) VALUES ('${data.user_name}', '${data.user_email}', '${data.user_password}');`);
+        bcrypt.hash(data.user_password, 10, async (error, hash) => {
+            if(error){
+                throw new Error('Problema ao criptografar a senha');
+            }
+
+            await DB.execute(`INSERT INTO ${table} (user_name, user_email, user_password) VALUES ('${data.user_name}', '${data.user_email}', '${hash}');`);
+            
+        });
+        
         return {
+            type: 'success',
             message: 'Usuário criado com sucesso!'
         }
+
     } catch (error) {
         return {
+            typr: 'error',
             message: error.message
         }
     }
@@ -41,7 +53,7 @@ async function login(data){
             throw new Error('Senha obrigatória');
         }
 
-        const result = await DB.execute(`SELECT * FROM ${table} WHERE user_email = '${data.user_email}' AND user_password = '${data.user_password}';`);
+        const result = await DB.execute(`SELECT * FROM ${table} WHERE user_email = '${data.user_email}';`);
 
         if(result.length === 0){
             return {
@@ -49,12 +61,30 @@ async function login(data){
             }
         }
 
-        const token = jwt.sign({ user_id: result[0].user_id }, 'digital-store-api', {
-            expiresIn: '1h'
+        let token;
+
+        bcrypt.compare(data.user_password, result[0].user_password, async (error, result) => {
+            if(error){
+                return {
+                    message: 'Email ou senha incorretos'
+                }
+            }
+
+            if(result){
+                token = jwt.sign({ user_id: result[0].user_id }, 'digital-store-api', {
+                    expiresIn: '1h'
+                });
+        
+                await DB.execute(`UPDATE ${table} SET token = '${token}' WHERE user_id = ${result[0].user_id};`);
+            }
         });
 
-        await DB.execute(`UPDATE ${table} SET token = '${token}' WHERE user_id = ${result[0].user_id};`)
-        
+        if(!token){
+            return {
+                message: 'Email ou senha incorretos'
+            }
+        }
+
         return {
             token
         }
