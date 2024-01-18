@@ -3,6 +3,10 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const table = 'users';
 
+async function listAll(){
+    return await DB.execute(`SELECT user_id, user_name, user_email FROM ${table};`);
+}
+
 async function create(data){
     try {
         if(!data.user_name || data.user_name === ''){
@@ -60,33 +64,20 @@ async function login(data){
                 message: 'Email ou senha incorretos'
             }
         }
-
-        let token;
-
-        bcrypt.compare(data.user_password, result[0].user_password, async (error, result) => {
-            if(error){
-                return {
-                    message: 'Email ou senha incorretos'
-                }
-            }
-
-            if(result){
-                token = jwt.sign({ user_id: result[0].user_id }, 'digital-store-api', {
-                    expiresIn: '1h'
-                });
         
-                await DB.execute(`UPDATE ${table} SET token = '${token}' WHERE user_id = ${result[0].user_id};`);
-            }
-        });
+        const response = await bcrypt.compare(data.user_password, result[0].user_password);
+        
+        if(response){
+            const token = jwt.sign({ user_id: result[0].user_id }, 'digital-store-api', {
+                expiresIn: '1h'
+            });
 
-        if(!token){
-            return {
-                message: 'Email ou senha incorretos'
-            }
+            await DB.execute(`UPDATE ${table} SET token = '${token}' WHERE user_id = ${result[0].user_id};`);
+            return token;
         }
 
         return {
-            token
+            message: 'Email ou senha incorretos'
         }
 
     } catch (error) {
@@ -97,6 +88,7 @@ async function login(data){
 }
 
 module.exports = {
+    listAll,
     create,
     login
 }
